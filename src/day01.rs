@@ -1,3 +1,5 @@
+use std::{collections::HashMap, hash::Hash};
+
 use failure::{err_msg, Error};
 
 pub struct Solver {}
@@ -14,13 +16,31 @@ fn parse_line(line: &str) -> Result<(u32, u32), Error> {
     }
 }
 
-fn solve(mut left: Vec<u32>, mut right: Vec<u32>) -> u32 {
+fn count_difference(mut left: Vec<u32>, mut right: Vec<u32>) -> u32 {
     left.sort();
     right.sort();
 
     left.into_iter()
         .zip(right)
         .map(|(l, r)| l.abs_diff(r))
+        .sum()
+}
+
+fn count_occurances<T: Hash + Eq + Clone>(items: &[T]) -> HashMap<T, u32> {
+    let mut counts = HashMap::new();
+
+    for item in items {
+        *counts.entry(item.clone()).or_default() += 1;
+    }
+
+    counts
+}
+
+fn count_similarity(left: &[u32], right: &[u32]) -> u32 {
+    let counts = count_occurances(right);
+
+    left.iter()
+        .map(|num| *num * counts.get(num).cloned().unwrap_or_default())
         .sum()
 }
 
@@ -35,8 +55,9 @@ impl super::Solver for Solver {
     }
 
     fn solve((left, right): Self::Problem) -> (Option<String>, Option<String>) {
-        let part1: u32 = solve(left, right);
+        let part1: u32 = count_difference(left.clone(), right.clone());
+        let part2: u32 = count_similarity(&left, &right);
 
-        (Some(part1.to_string()), None)
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
