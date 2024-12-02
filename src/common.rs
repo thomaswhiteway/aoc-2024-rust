@@ -2,7 +2,9 @@
 
 use itertools::iproduct;
 use std::{
+    collections::HashMap,
     fmt::Display,
+    hash::Hash,
     ops::{Add, Div, Mul, Sub},
 };
 
@@ -198,4 +200,16 @@ impl Direction {
             West => North,
         }
     }
+}
+
+pub fn count_occurances<T: Hash + Eq + Clone, I: IntoIterator<Item = T>>(
+    items: I,
+) -> HashMap<T, u32> {
+    let mut counts = HashMap::new();
+
+    for item in items {
+        *counts.entry(item.clone()).or_default() += 1;
+    }
+
+    counts
 }

@@ -1,5 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
-
+use crate::common::count_occurances;
 use failure::{err_msg, Error};
 
 pub struct Solver {}
@@ -24,16 +23,6 @@ fn count_difference(mut left: Vec<u32>, mut right: Vec<u32>) -> u32 {
         .zip(right)
         .map(|(l, r)| l.abs_diff(r))
         .sum()
-}
-
-fn count_occurances<T: Hash + Eq + Clone>(items: &[T]) -> HashMap<T, u32> {
-    let mut counts = HashMap::new();
-
-    for item in items {
-        *counts.entry(item.clone()).or_default() += 1;
-    }
-
-    counts
 }
 
 fn count_similarity(left: &[u32], right: &[u32]) -> u32 {
