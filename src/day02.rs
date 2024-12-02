@@ -18,7 +18,16 @@ fn is_safe(levels: &[i64]) -> bool {
         && (diffs.iter().all(|&d| d > 0) || diffs.iter().all(|&d| d < 0))
 }
 
-fn count_safe(all_levels: &[Box<[i64]>]) -> usize {
+fn is_safe_damped(levels: &[i64]) -> bool {
+    return is_safe(levels)
+        || (0..levels.len()).any(|index| {
+            let mut new_levels = levels.to_vec();
+            new_levels.remove(index);
+            is_safe(&new_levels)
+        });
+}
+
+fn count_safe<F: Fn(&[i64]) -> bool>(all_levels: &[Box<[i64]>], is_safe: F) -> usize {
     all_levels.iter().filter(|levels| is_safe(levels)).count()
 }
 
@@ -33,8 +42,9 @@ impl super::Solver for Solver {
     }
 
     fn solve(levels: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = count_safe(&levels);
+        let part1 = count_safe(&levels, is_safe);
+        let part2 = count_safe(&levels, is_safe_damped);
 
-        (Some(part1.to_string()), None)
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
