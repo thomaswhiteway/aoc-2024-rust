@@ -2,25 +2,34 @@ use std::collections::HashMap;
 
 use failure::Error;
 
-use crate::common::{Direction, Position};
+use crate::common::{count_occurances, Direction, Position};
 use itertools::iproduct;
 
 pub struct Solver {}
 
-fn has_match(grid: &HashMap<Position, char>, start: Position, dir: Direction) -> bool {
-    let candidate: String = (0..4)
-        .map(|offset| start.step_by(dir, offset))
-        .map(|pos| grid.get(&pos).cloned().unwrap_or(' '))
-        .collect();
-
-    candidate == "XMAS"
+fn has_match(grid: &HashMap<Position, char>, start: Position, dir: Direction, value: &str) -> bool {
+    value
+        .char_indices()
+        .map(|(offset, c)| (start.step_by(dir, offset as u32), c))
+        .all(|(pos, c)| grid.get(&pos).cloned().unwrap_or('\0') == c)
 }
 
-fn find_num_occurances(max: Position, grid: &HashMap<Position, char>) -> usize {
+fn find_xmas_count(max: Position, grid: &HashMap<Position, char>) -> usize {
     iproduct!(0..=max.x, 0..=max.y, Direction::all())
         .map(|(x, y, dir)| (Position { x, y }, dir))
-        .filter(|&(pos, dir)| has_match(grid, pos, dir))
+        .filter(|&(pos, dir)| has_match(grid, pos, dir, "XMAS"))
         .count()
+}
+
+fn find_x_mas_count(max: Position, grid: &HashMap<Position, char>) -> usize {
+    let middle_counts = count_occurances(
+        iproduct!(0..=max.x, 0..=max.y, Direction::diagonal())
+            .map(|(x, y, dir)| (Position { x, y }, dir))
+            .filter(|&(pos, dir)| has_match(grid, pos, dir, "MAS"))
+            .map(|(pos, dir)| pos.step(dir)),
+    );
+
+    middle_counts.values().filter(|&&count| count == 2).count()
 }
 
 impl super::Solver for Solver {
@@ -53,8 +62,9 @@ impl super::Solver for Solver {
     }
 
     fn solve((max, grid): Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = find_num_occurances(max, &grid);
+        let part1 = find_xmas_count(max, &grid);
+        let part2 = find_x_mas_count(max, &grid);
 
-        (Some(part1.to_string()), None)
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }

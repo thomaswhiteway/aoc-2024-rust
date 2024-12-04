@@ -158,9 +158,14 @@ impl Direction {
         .into_iter()
     }
 
-    pub fn cardinal() -> impl Iterator<Item = Self> {
+    pub fn cardinal() -> impl Iterator<Item = Self> + Clone {
         use Direction::*;
         [North, East, South, West].into_iter()
+    }
+
+    pub fn diagonal() -> impl Iterator<Item = Self> + Clone {
+        use Direction::*;
+        [NorthEast, SouthEast, SouthWest, NorthWest].into_iter()
     }
 
     pub fn as_char(&self) -> char {
