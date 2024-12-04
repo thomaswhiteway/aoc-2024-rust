@@ -140,13 +140,25 @@ impl Display for Position {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     North,
+    NorthEast,
     East,
+    SouthEast,
     South,
+    SouthWest,
     West,
+    NorthWest,
 }
 
 impl Direction {
-    pub fn all() -> impl Iterator<Item = Self> {
+    pub fn all() -> impl Iterator<Item = Self> + Clone {
+        use Direction::*;
+        [
+            North, NorthEast, East, SouthEast, South, SouthWest, West, NorthWest,
+        ]
+        .into_iter()
+    }
+
+    pub fn cardinal() -> impl Iterator<Item = Self> {
         use Direction::*;
         [North, East, South, West].into_iter()
     }
@@ -155,9 +167,13 @@ impl Direction {
         use Direction::*;
         match self {
             North => '^',
+            NorthEast => 'p',
             East => '>',
+            SouthEast => 'b',
             South => 'V',
+            SouthWest => 'L',
             West => '<',
+            NorthWest => '\\',
         }
     }
 
@@ -165,9 +181,13 @@ impl Direction {
         use Direction::*;
         match self {
             North => Position { x: 0, y: -1 },
+            NorthEast => Position { x: 1, y: -1 },
             East => Position { x: 1, y: 0 },
+            SouthEast => Position { x: 1, y: 1 },
             South => Position { x: 0, y: 1 },
+            SouthWest => Position { x: -1, y: 1 },
             West => Position { x: -1, y: 0 },
+            NorthWest => Position { x: -1, y: -1 },
         }
     }
 
@@ -175,9 +195,13 @@ impl Direction {
         use Direction::*;
         match self {
             North => South,
+            NorthEast => SouthWest,
             East => West,
+            SouthEast => NorthWest,
             South => North,
+            SouthWest => NorthEast,
             West => East,
+            NorthWest => SouthEast,
         }
     }
 
@@ -185,9 +209,13 @@ impl Direction {
         use Direction::*;
         match self {
             North => West,
+            NorthEast => NorthWest,
             East => North,
+            SouthEast => NorthEast,
             South => East,
+            SouthWest => SouthEast,
             West => South,
+            NorthWest => SouthWest,
         }
     }
 
@@ -195,9 +223,13 @@ impl Direction {
         use Direction::*;
         match self {
             North => East,
+            NorthEast => SouthEast,
             East => South,
+            SouthEast => SouthWest,
             South => West,
+            SouthWest => NorthWest,
             West => North,
+            NorthWest => NorthEast,
         }
     }
 }
