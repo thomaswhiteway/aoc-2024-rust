@@ -28,38 +28,77 @@ fn parse_input(input: &str) -> Result<(Rules, Box<[Box<[u32]>]>), Error> {
         .map_err(|err| err_msg(format!("Failed to parse input: {}", err)))
 }
 
+fn follow(start: u32, values: &[u32], links: &HashMap<u32, HashSet<u32>>) -> Vec<u32> {
+    let mut chained = HashSet::new();
+
+    let mut to_check = vec![start];
+
+    while let Some(check) = to_check.pop() {
+        if let Some(candidates) = links.get(&check) {
+            for &val in values {
+                if candidates.contains(&val) && chained.insert(val) {
+                    to_check.push(val);
+                }
+            }
+        }
+    }
+
+    chained.into_iter().collect()
+}
+
 #[derive(Clone)]
 pub struct Rules {
-    blocked_by: HashMap<u32, HashSet<u32>>,
+    before: HashMap<u32, HashSet<u32>>,
+    after: HashMap<u32, HashSet<u32>>,
 }
 
 impl Rules {
     fn new(rules: Vec<(u32, u32)>) -> Self {
-        let mut blocked_by: HashMap<u32, HashSet<u32>> = HashMap::new();
+        let mut after: HashMap<u32, HashSet<u32>> = HashMap::new();
+        let mut before: HashMap<u32, HashSet<u32>> = HashMap::new();
 
-        for (blocker, blockee) in rules {
-            blocked_by.entry(blockee).or_default().insert(blocker);
+        for (first, second) in rules {
+            after.entry(first).or_default().insert(second);
+            before.entry(second).or_default().insert(first);
         }
 
-        Rules { blocked_by }
+        Rules { before, after }
     }
 
     fn in_sequence(&self, page_numbers: &[u32]) -> bool {
-        let mut disallowed = HashSet::new();
+        let mut disallowed: HashSet<u32> = HashSet::new();
 
         for page in page_numbers {
             if disallowed.contains(page) {
                 return false;
             }
 
-            if let Some(blockers) = self.blocked_by.get(page) {
-                for blocker in blockers {
-                    disallowed.insert(blocker);
-                }
+            if let Some(before) = self.before.get(page) {
+                disallowed.extend(before);
             }
         }
 
         true
+    }
+
+    fn reorder(&self, page_numbers: &[u32]) -> Box<[u32]> {
+        if let Some(&first) = page_numbers.first() {
+            let before = follow(first, page_numbers, &self.before);
+            let after = follow(first, page_numbers, &self.after);
+
+            let before = self.reorder(&before);
+            let after = self.reorder(&after);
+
+            assert!(before.len() + after.len() + 1 == page_numbers.len());
+
+            let mut new_page_numbers = vec![];
+            new_page_numbers.extend(before);
+            new_page_numbers.push(first);
+            new_page_numbers.extend(after);
+            new_page_numbers.into_boxed_slice()
+        } else {
+            vec![].into_boxed_slice()
+        }
     }
 }
 
@@ -67,11 +106,20 @@ fn find_mid_number(page_numbers: &[u32]) -> u32 {
     page_numbers[page_numbers.len() / 2]
 }
 
-fn find_mid_numbers(rules: Rules, sequences: &[Box<[u32]>]) -> u32 {
+fn find_ordered_mid_numbers(rules: &Rules, sequences: &[Box<[u32]>]) -> u32 {
     sequences
         .iter()
         .filter(|page_numbers| rules.in_sequence(page_numbers))
         .map(|page_numbers| find_mid_number(page_numbers))
+        .sum()
+}
+
+fn find_unordered_mid_numbers(rules: &Rules, sequences: &[Box<[u32]>]) -> u32 {
+    sequences
+        .iter()
+        .filter(|page_numbers| !rules.in_sequence(page_numbers))
+        .map(|page_numbers| rules.reorder(page_numbers))
+        .map(|page_numbers| find_mid_number(&page_numbers))
         .sum()
 }
 
@@ -85,8 +133,9 @@ impl super::Solver for Solver {
     }
 
     fn solve((rules, page_numbers): Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = find_mid_numbers(rules, &page_numbers);
+        let part1 = find_ordered_mid_numbers(&rules, &page_numbers);
+        let part2 = find_unordered_mid_numbers(&rules, &page_numbers);
 
-        (Some(part1.to_string()), None)
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
