@@ -14,17 +14,23 @@ use failure::{err_msg, Error};
 enum Operator {
     Add,
     Mul,
+    Concat,
 }
 
 impl Operator {
-    fn all() -> impl Iterator<Item = Self> {
-        [Operator::Add, Operator::Mul].into_iter()
+    fn basic() -> Box<[Operator]> {
+        Box::new([Operator::Add, Operator::Mul])
+    }
+
+    fn extended() -> Box<[Operator]> {
+        Box::new([Operator::Add, Operator::Mul, Operator::Concat])
     }
 
     fn apply(self, left: u64, right: u64) -> u64 {
         match self {
             Operator::Add => left + right,
             Operator::Mul => left * right,
+            Operator::Concat => left * 10u64.pow(right.ilog10() + 1) + right,
         }
     }
 }
@@ -35,12 +41,12 @@ pub struct Equation {
 }
 
 impl Equation {
-    fn has_solution(&self) -> bool {
+    fn has_solution(&self, operators: &[Operator]) -> bool {
         let mut stack = vec![(self.values[0], &self.values[1..])];
 
         while let Some((total, remaining)) = stack.pop() {
             if !remaining.is_empty() {
-                for op in Operator::all() {
+                for op in operators {
                     stack.push((op.apply(total, remaining[0]), &remaining[1..]));
                 }
             } else if total == self.result {
@@ -52,10 +58,10 @@ impl Equation {
     }
 }
 
-fn find_total_valid_sum(equations: &[Equation]) -> u64 {
+fn find_total_valid_sum(equations: &[Equation], operators: &[Operator]) -> u64 {
     equations
         .iter()
-        .filter(|eq| eq.has_solution())
+        .filter(|eq| eq.has_solution(operators))
         .map(|eq| eq.result)
         .sum()
 }
@@ -83,7 +89,8 @@ impl super::Solver for Solver {
     }
 
     fn solve(equations: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = find_total_valid_sum(&equations);
-        (Some(part1.to_string()), None)
+        let part1 = find_total_valid_sum(&equations, &Operator::basic());
+        let part2 = find_total_valid_sum(&equations, &Operator::extended());
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
