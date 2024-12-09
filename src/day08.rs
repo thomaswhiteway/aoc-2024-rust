@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::common::Position;
 
 use failure::Error;
+use num::integer::gcd;
 
 pub struct Grid {
     antennas: HashMap<char, Vec<Position>>,
@@ -16,24 +17,66 @@ impl Grid {
     }
 }
 
-fn antinodes_for_antennas(left: Position, right: Position) -> impl Iterator<Item = Position> {
-    let diff = right - left;
-    assert!(diff.x % 3 != 0 || diff.y % 3 != 0);
-    [left - diff, right + diff].into_iter()
+trait AntinodeFinder {
+    fn antinodes_for_antennas(
+        grid: &Grid,
+        left: Position,
+        right: Position,
+    ) -> impl Iterator<Item = Position> + '_;
 }
 
-fn find_antinodes(antennas: &[Position]) -> impl Iterator<Item = Position> + '_ {
+struct BasicFinder {}
+
+impl AntinodeFinder for BasicFinder {
+    fn antinodes_for_antennas(
+        grid: &Grid,
+        left: Position,
+        right: Position,
+    ) -> impl Iterator<Item = Position> + '_ {
+        let diff = right - left;
+        assert!(diff.x % 3 != 0 || diff.y % 3 != 0);
+        [left - diff, right + diff]
+            .into_iter()
+            .filter(|&pos| grid.inside(pos))
+    }
+}
+
+struct FullFinder {}
+
+impl AntinodeFinder for FullFinder {
+    fn antinodes_for_antennas(
+        grid: &Grid,
+        left: Position,
+        right: Position,
+    ) -> impl Iterator<Item = Position> + '_ {
+        let step = right - left;
+        assert!(gcd(step.x, step.y) == 1);
+        (0..)
+            .map(move |offset: i64| left - step * offset)
+            .take_while(|&pos| grid.inside(pos))
+            .chain(
+                (1..)
+                    .map(move |offset: i64| left + step * offset)
+                    .take_while(|&pos| grid.inside(pos)),
+            )
+    }
+}
+
+fn find_antinodes<'a, F: AntinodeFinder>(
+    grid: &'a Grid,
+    antennas: &'a [Position],
+) -> impl Iterator<Item = Position> + 'a {
     (0..antennas.len()).flat_map(move |i| {
-        (i + 1..antennas.len()).flat_map(move |j| antinodes_for_antennas(antennas[i], antennas[j]))
+        (i + 1..antennas.len())
+            .flat_map(move |j| F::antinodes_for_antennas(grid, antennas[i], antennas[j]))
     })
 }
 
-fn count_antinodes(grid: &Grid) -> usize {
+fn count_antinodes<F: AntinodeFinder>(grid: &Grid) -> usize {
     let antinodes: HashSet<Position> = grid
         .antennas
         .iter()
-        .flat_map(|(_, positions)| find_antinodes(&positions))
-        .filter(|&pos| grid.inside(pos))
+        .flat_map(|(_, positions)| find_antinodes::<F>(grid, &positions))
         .collect();
 
     antinodes.len()
@@ -68,7 +111,8 @@ impl super::Solver for Solver {
     }
 
     fn solve(grid: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = count_antinodes(&grid);
-        (Some(part1.to_string()), None)
+        let part1 = count_antinodes::<BasicFinder>(&grid);
+        let part2 = count_antinodes::<FullFinder>(&grid);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
