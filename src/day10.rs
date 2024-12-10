@@ -1,4 +1,7 @@
-use std::{collections::HashSet, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 use crate::common::Position;
 use failure::{err_msg, Error};
@@ -58,11 +61,42 @@ impl Map {
 
         reachable.len()
     }
+
+    fn trailhead_rating(&self, position: Position) -> usize {
+        if self.height_at(position) != Some(0) {
+            return 0;
+        }
+
+        let mut reachable = HashMap::new();
+        reachable.insert(position, 1);
+
+        for height in 1..=9 {
+            let mut new_reachable = HashMap::new();
+
+            for (pos, count) in reachable.into_iter() {
+                for adj_pos in pos.adjacent() {
+                    if self.height_at(adj_pos) == Some(height) {
+                        *new_reachable.entry(adj_pos).or_default() += count;
+                    }
+                }
+            }
+
+            reachable = new_reachable;
+        }
+
+        reachable.values().sum()
+    }
 }
 
 fn total_trailhead_score(map: &Map) -> usize {
     map.all_positions()
         .map(|pos| map.trailhead_score(pos))
+        .sum()
+}
+
+fn total_trailhead_rating(map: &Map) -> usize {
+    map.all_positions()
+        .map(|pos| map.trailhead_rating(pos))
         .sum()
 }
 
@@ -77,6 +111,7 @@ impl super::Solver for Solver {
 
     fn solve(map: Self::Problem) -> (Option<String>, Option<String>) {
         let part1 = total_trailhead_score(&map);
-        (Some(part1.to_string()), None)
+        let part2 = total_trailhead_rating(&map);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
