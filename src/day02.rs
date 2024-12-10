@@ -14,17 +14,17 @@ fn parse_line(line: &str) -> Result<Box<[i64]>, Error> {
 
 fn is_safe(levels: &[i64]) -> bool {
     let diffs: Vec<i64> = levels.iter().tuple_windows().map(|(x, y)| x - y).collect();
-    diffs.iter().all(|&d| d >= -3 && d <= 3 && d != 0)
+    diffs.iter().all(|&d| (-3..=3).contains(&d) && d != 0)
         && (diffs.iter().all(|&d| d > 0) || diffs.iter().all(|&d| d < 0))
 }
 
 fn is_safe_damped(levels: &[i64]) -> bool {
-    return is_safe(levels)
+    is_safe(levels)
         || (0..levels.len()).any(|index| {
             let mut new_levels = levels.to_vec();
             new_levels.remove(index);
             is_safe(&new_levels)
-        });
+        })
 }
 
 fn count_safe<F: Fn(&[i64]) -> bool>(all_levels: &[Box<[i64]>], is_safe: F) -> usize {

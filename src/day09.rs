@@ -93,7 +93,7 @@ impl Segment {
     }
 }
 
-fn calculate_checksum(segments: &Vec<Segment>) -> u64 {
+fn calculate_checksum(segments: &[Segment]) -> u64 {
     segments.iter().map(|segment| segment.checksum()).sum()
 }
 

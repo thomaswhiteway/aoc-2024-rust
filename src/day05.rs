@@ -12,7 +12,7 @@ use nom::{
 
 use crate::parsers::unsigned;
 
-fn parse_input(input: &str) -> Result<(Rules, Box<[Box<[u32]>]>), Error> {
+fn parse_input(input: &str) -> Result<(Rules, PageNumbers), Error> {
     let rule = separated_pair(unsigned, tag("|"), unsigned);
     let rules = map(many0(terminated(rule, newline)), Rules::new);
 
@@ -51,6 +51,8 @@ pub struct Rules {
     before: HashMap<u32, HashSet<u32>>,
     after: HashMap<u32, HashSet<u32>>,
 }
+
+type PageNumbers = Box<[Box<[u32]>]>;
 
 impl Rules {
     fn new(rules: Vec<(u32, u32)>) -> Self {

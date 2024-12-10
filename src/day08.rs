@@ -76,7 +76,7 @@ fn count_antinodes<F: AntinodeFinder>(grid: &Grid) -> usize {
     let antinodes: HashSet<Position> = grid
         .antennas
         .iter()
-        .flat_map(|(_, positions)| find_antinodes::<F>(grid, &positions))
+        .flat_map(|(_, positions)| find_antinodes::<F>(grid, positions))
         .collect();
 
     antinodes.len()

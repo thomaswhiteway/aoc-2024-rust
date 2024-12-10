@@ -19,7 +19,7 @@ fn calculate(data: &str, always_enabled: bool) -> u64 {
                     }
                 }
                 "do" => enabled = true,
-                "don't" => enabled = always_enabled || false,
+                "don't" => enabled = always_enabled,
                 cmd => panic!("Unexpected command: {}", cmd),
             }
             (total, enabled)
