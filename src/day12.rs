@@ -27,8 +27,58 @@ impl Region {
             .count()
     }
 
-    fn price(&self) -> usize {
+    fn sides(&self) -> usize {
+        let mut to_visit: HashSet<Position> = self
+            .plots
+            .iter()
+            .flat_map(|pos| pos.adjacent())
+            .collect::<HashSet<_>>()
+            .difference(&self.plots)
+            .cloned()
+            .collect();
+
+        let mut sides = 0;
+
+        while let Some(start) = to_visit.iter().next().cloned() {
+            let start_dir = Direction::cardinal()
+                .find(|&dir| self.plots.contains(&start.step(dir)))
+                .unwrap()
+                .turn_left();
+
+            let mut pos = start;
+            let mut dir = start_dir;
+
+            loop {
+                to_visit.remove(&pos);
+
+                let next_pos = pos.step(dir);
+
+                if self.contains(next_pos) {
+                    sides += 1;
+                    dir = dir.turn_left();
+                } else if !self.contains(next_pos.step(dir.turn_right())) {
+                    sides += 1;
+                    dir = dir.turn_right();
+                    pos = next_pos.step(dir);
+                } else {
+                    pos = next_pos;
+                }
+
+                if pos == start && dir == start_dir {
+                    break;
+                }
+            }
+        }
+
+        sides
+    }
+
+    fn full_price(&self) -> usize {
         self.area() * self.perimeter()
+    }
+
+    fn discounted_price(&self) -> usize {
+        self.area() * self.sides()
     }
 }
 
@@ -72,8 +122,11 @@ fn find_regions(plots: &HashMap<Position, char>) -> Vec<Region> {
     regions
 }
 
-fn get_total_price(plots: &HashMap<Position, char>) -> usize {
-    find_regions(plots).iter().map(Region::price).sum()
+fn get_total_price<F>(plots: &HashMap<Position, char>, price: F) -> usize
+where
+    F: Fn(&Region) -> usize,
+{
+    find_regions(plots).iter().map(price).sum()
 }
 
 pub struct Solver {}
@@ -90,7 +143,8 @@ impl super::Solver for Solver {
     }
 
     fn solve(plots: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = get_total_price(&plots);
-        (Some(part1.to_string()), None)
+        let part1 = get_total_price(&plots, Region::full_price);
+        let part2 = get_total_price(&plots, Region::discounted_price);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
