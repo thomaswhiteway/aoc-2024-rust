@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use itertools::iproduct;
+use num::rational::Ratio;
 use std::{
     collections::HashMap,
     fmt::Display,
@@ -15,6 +16,10 @@ pub struct Position {
 }
 
 impl Position {
+    pub fn gradient(&self) -> Ratio<i64> {
+        Ratio::new(self.y, self.x)
+    }
+
     pub fn manhattan_distance_to(&self, other: &Self) -> u64 {
         self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
     }

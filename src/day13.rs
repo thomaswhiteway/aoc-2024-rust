@@ -1,5 +1,6 @@
 use crate::common::Position;
 use failure::Error;
+use num::rational::Ratio;
 
 mod parse {
     use failure::{err_msg, Error};
@@ -70,31 +71,66 @@ pub struct Machine {
     prize: Position,
 }
 
+fn is_valid_presses(presses: Ratio<i64>, max_presses: Option<i64>) -> bool {
+    if presses < Ratio::ZERO {
+        return false;
+    }
+
+    if !presses.is_integer() {
+        return false;
+    }
+
+    if max_presses
+        .map(Ratio::from_integer)
+        .map(|p| presses > p)
+        .unwrap_or_default()
+    {
+        return false;
+    }
+
+    true
+}
+
 impl Machine {
-    fn min_tokens(&self) -> Option<i64> {
-        (0..=100)
-            .map(|a_presses| (a_presses, self.button_a * a_presses))
-            .take_while(|(_, a_pos)| a_pos.x <= self.prize.x && a_pos.y <= self.prize.y)
-            .filter_map(|(a_presses, a_pos)| {
-                let diff = self.prize - a_pos;
-                if diff.x % self.button_b.x == 0 {
-                    let b_presses = diff.x / self.button_b.x;
-                    if b_presses <= 100 && self.button_b.y * b_presses == diff.y {
-                        Some((a_presses, b_presses))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
+    fn with_prize_offset(&self, delta: Position) -> Self {
+        Machine {
+            button_a: self.button_a,
+            button_b: self.button_b,
+            prize: self.prize + delta,
+        }
+    }
+
+    fn num_presses(&self, max_presses: Option<i64>) -> Option<(i64, i64)> {
+        let determinant = self.button_a.x * self.button_b.y - self.button_a.y * self.button_b.x;
+        assert!(determinant != 0);
+
+        let a_presses = Ratio::new(
+            self.prize.x * self.button_b.y - self.prize.y * self.button_b.x,
+            determinant,
+        );
+        let b_presses = Ratio::new(
+            self.prize.y * self.button_a.x - self.prize.x * self.button_a.y,
+            determinant,
+        );
+
+        if is_valid_presses(a_presses, max_presses) && is_valid_presses(b_presses, max_presses) {
+            Some((a_presses.to_integer(), b_presses.to_integer()))
+        } else {
+            None
+        }
+    }
+
+    fn num_tokens(&self, max_presses: Option<i64>) -> Option<i64> {
+        self.num_presses(max_presses)
             .map(|(a_presses, b_presses)| a_presses * 3 + b_presses)
-            .min()
     }
 }
 
-fn get_total_tokens(machines: &[Machine]) -> i64 {
-    machines.iter().filter_map(Machine::min_tokens).sum()
+fn get_total_tokens(machines: &[Machine], max_presses: Option<i64>) -> i64 {
+    machines
+        .iter()
+        .filter_map(|machine| machine.num_tokens(max_presses))
+        .sum()
 }
 
 pub struct Solver {}
@@ -107,7 +143,16 @@ impl super::Solver for Solver {
     }
 
     fn solve(machines: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = get_total_tokens(&machines);
-        (Some(part1.to_string()), None)
+        let part1 = get_total_tokens(&machines, Some(100));
+        let delta = Position {
+            x: 10000000000000,
+            y: 10000000000000,
+        };
+        let updated_machines: Vec<_> = machines
+            .iter()
+            .map(|machine| machine.with_prize_offset(delta))
+            .collect();
+        let part2 = get_total_tokens(&updated_machines, None);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
