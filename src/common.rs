@@ -16,6 +16,13 @@ pub struct Position {
 }
 
 impl Position {
+    pub fn reflect_x(&self, x: i64) -> Position {
+        Position {
+            x: x + (x - self.x),
+            y: self.y,
+        }
+    }
+
     pub fn gradient(&self) -> Ratio<i64> {
         Ratio::new(self.y, self.x)
     }

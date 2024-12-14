@@ -80,6 +80,35 @@ fn find_safety_factor(robots: &[Robot], seconds: i64, size: Position) -> usize {
     quadrants.values().product()
 }
 
+fn find_tree(robots: &[Robot], size: Position) -> i64 {
+    let num_robots = robots.len() as i64;
+
+    for secs in 0..1000000 {
+        let moved: Vec<_> = robots
+            .iter()
+            .map(|robot| robot.position_after(secs, size))
+            .collect();
+
+
+        let x_mean: i64 = moved.iter().map(|pos| pos.x).sum::<i64>() / num_robots;
+        let x_variance =
+            moved.iter().map(|pos| (pos.x - x_mean).pow(2)).sum::<i64>() / num_robots;
+
+        let y_mean: i64 = moved.iter().map(|pos| pos.y).sum::<i64>() / num_robots;
+        let y_variance =
+            moved.iter().map(|pos| (pos.y - y_mean).pow(2)).sum::<i64>() / num_robots;
+
+        if x_variance < 500 && y_variance < 500 {
+            println!("After {}s: ({}, {})", secs, x_variance, y_variance);
+            display_robots(moved.iter().cloned(), size);
+            println!();
+            return secs;
+        }
+    }
+
+    0
+}
+
 pub struct Solver {}
 
 impl super::Solver for Solver {
@@ -108,7 +137,8 @@ impl super::Solver for Solver {
     fn solve(robots: Self::Problem) -> (Option<String>, Option<String>) {
         let size = Position { x: 101, y: 103 };
         let part1 = find_safety_factor(&robots, 100, size);
-        (Some(part1.to_string()), None)
+        let part2 = find_tree(&robots, size);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
 
