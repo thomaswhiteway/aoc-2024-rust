@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use failure::{err_msg, Error};
 use itertools::iproduct;
 use num::rational::Ratio;
 use std::{
@@ -247,6 +248,19 @@ impl Direction {
             SouthWest => NorthWest,
             West => North,
             NorthWest => NorthEast,
+        }
+    }
+}
+
+impl TryFrom<char> for Direction {
+    type Error = Error;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            '^' => Ok(Direction::North),
+            '>' => Ok(Direction::East),
+            'v' => Ok(Direction::South),
+            '<' => Ok(Direction::West),
+            c => Err(err_msg(format!("Invalid move {}", c))),
         }
     }
 }

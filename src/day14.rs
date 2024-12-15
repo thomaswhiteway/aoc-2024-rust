@@ -89,14 +89,11 @@ fn find_tree(robots: &[Robot], size: Position) -> i64 {
             .map(|robot| robot.position_after(secs, size))
             .collect();
 
-
         let x_mean: i64 = moved.iter().map(|pos| pos.x).sum::<i64>() / num_robots;
-        let x_variance =
-            moved.iter().map(|pos| (pos.x - x_mean).pow(2)).sum::<i64>() / num_robots;
+        let x_variance = moved.iter().map(|pos| (pos.x - x_mean).pow(2)).sum::<i64>() / num_robots;
 
         let y_mean: i64 = moved.iter().map(|pos| pos.y).sum::<i64>() / num_robots;
-        let y_variance =
-            moved.iter().map(|pos| (pos.y - y_mean).pow(2)).sum::<i64>() / num_robots;
+        let y_variance = moved.iter().map(|pos| (pos.y - y_mean).pow(2)).sum::<i64>() / num_robots;
 
         if x_variance < 500 && y_variance < 500 {
             println!("After {}s: ({}, {})", secs, x_variance, y_variance);
