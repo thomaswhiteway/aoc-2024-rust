@@ -1,6 +1,6 @@
-use std::fmt::Display;
 use failure::Error;
 use parse::parse_input;
+use std::fmt::Display;
 
 mod parse {
     use crate::parsers::unsigned;
@@ -96,7 +96,7 @@ impl Display for Operand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Operand::Literal(n) => write!(f, "{}", n),
-            Operand::Register(reg) => write!(f, "{}", reg)
+            Operand::Register(reg) => write!(f, "{}", reg),
         }
     }
 }
@@ -117,7 +117,7 @@ enum Instruction {
 }
 
 impl Instruction {
-    fn execute(&self, registers: &mut Registers) -> (Option<usize>, Option<u64>) {
+    fn execute(&self, registers: &mut Registers) -> (Option<usize>, Option<u8>) {
         use Instruction::*;
         match self {
             Divide(numerator, denominator, store) => {
@@ -144,7 +144,7 @@ impl Instruction {
                 }
             }
             Out(operand) => {
-                let value = operand.evaluate(registers) % 8;
+                let value = (operand.evaluate(registers) % 8) as u8;
                 (None, Some(value))
             }
         }
@@ -155,15 +155,25 @@ impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Instruction::*;
         match self {
-            Divide(Operand::Register(Register::A), operand, Register::A) => write!(f, "adv {}", operand),
-            Divide(Operand::Register(Register::A), operand, Register::B) => write!(f, "bdv {}", operand),
-            Divide(Operand::Register(Register::A), operand, Register::C) => write!(f, "cdv {}", operand),
-            Xor(Operand::Register(Register::B), Operand::Literal(n), Register::B) => write!(f, "bxl {}", n),
-            Xor(Operand::Register(Register::B), Operand::Register(Register::C), Register::B) => write!(f, "bxc  "),
+            Divide(Operand::Register(Register::A), operand, Register::A) => {
+                write!(f, "adv {}", operand)
+            }
+            Divide(Operand::Register(Register::A), operand, Register::B) => {
+                write!(f, "bdv {}", operand)
+            }
+            Divide(Operand::Register(Register::A), operand, Register::C) => {
+                write!(f, "cdv {}", operand)
+            }
+            Xor(Operand::Register(Register::B), Operand::Literal(n), Register::B) => {
+                write!(f, "bxl {}", n)
+            }
+            Xor(Operand::Register(Register::B), Operand::Register(Register::C), Register::B) => {
+                write!(f, "bxc  ")
+            }
             Mod(operand, Register::B) => write!(f, "bst {}", operand),
             JumpNotZero(Operand::Literal(n)) => write!(f, "jnz {}", n),
             Out(operand) => write!(f, "out {}", operand),
-            _ => write!(f, "{:?}", self)
+            _ => write!(f, "{:?}", self),
         }
     }
 }
@@ -188,7 +198,11 @@ impl Registers {
 
 impl Display for Registers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{:3},{:3},{:3}]", self.values[0], self.values[1], self.values[2])
+        write!(
+            f,
+            "[{:3X},{:3X},{:3X}]",
+            self.values[0], self.values[1], self.values[2]
+        )
     }
 }
 
@@ -196,16 +210,20 @@ struct Computer<'a> {
     registers: Registers,
     program: &'a [u8],
     instruction_pointer: usize,
-    output: Vec<u64>,
+    output: Vec<u8>,
+    expected_output: Option<&'a [u8]>,
+    debug: bool,
 }
 
 impl<'a> Computer<'a> {
-    fn new(registers: Registers, program: &'a [u8]) -> Self {
+    fn new(registers: Registers, program: &'a [u8], expected_output: Option<&'a [u8]>) -> Self {
         Computer {
             registers,
             program,
             instruction_pointer: 0,
             output: vec![],
+            expected_output,
+            debug: false,
         }
     }
 
@@ -235,10 +253,17 @@ impl<'a> Computer<'a> {
         }
     }
 
-    fn run(&mut self) {
-        println!("{:?}", self.program);
+    fn run(&mut self) -> bool {
+        if self.debug {
+            println!("Program: {:?}", self.program);
+        }
         while let Some(instruction) = self.next_instruction() {
-            println!("{:02}: {:16} {}", self.instruction_pointer, instruction, self.registers);
+            if self.debug {
+                println!(
+                    "{:02} {} {}",
+                    self.instruction_pointer, instruction, self.registers
+                );
+            }
             let (next, output) = instruction.execute(&mut self.registers);
 
             if let Some(instruction_pointer) = next {
@@ -248,21 +273,60 @@ impl<'a> Computer<'a> {
             }
 
             if let Some(output) = output {
+                if let Some(expected) = self.expected_output {
+                    if expected.is_empty() || output != expected[0] {
+                        return false;
+                    }
+
+                    self.expected_output = Some(&expected[1..]);
+                }
+
                 self.output.push(output);
             }
         }
+
+        self.expected_output
+            .map(|expected| expected.is_empty())
+            .unwrap_or(true)
     }
 }
 
-fn get_output(registers: Registers, instructions: &[u8]) -> String {
-    let mut computer = Computer::new(registers, instructions);
+fn get_output(registers: Registers, program: &[u8]) -> Vec<u8> {
+    let mut computer = Computer::new(registers, program, None);
     computer.run();
-    computer
-        .output
-        .iter()
-        .map(|v| v.to_string())
-        .collect::<Vec<_>>()
-        .join(",")
+    computer.output
+}
+
+fn program_has_output(registers: Registers, program: &[u8], output: &[u8]) -> bool {
+    let mut computer = Computer::new(registers, program, Some(output));
+    computer.run()
+}
+
+fn find_initial_reg_value(program: &[u8]) -> u64 {
+    let mut candidates = vec![0];
+    for idx in (0..program.len()).rev() {
+        candidates = candidates
+            .into_iter()
+            .flat_map(|candidate| {
+                (0..8).map(move |d| candidate * 8 + d).filter(|&candidate| {
+                    get_output(Registers::new(candidate, 0, 0), program) == program[idx..]
+                })
+            })
+            .collect()
+    }
+
+    let result = candidates
+        .into_iter()
+        .min()
+        .expect("Failed to find solution");
+
+    assert!(program_has_output(
+        Registers::new(result, 0, 0),
+        program,
+        program
+    ));
+
+    result
 }
 
 pub struct Solver {}
@@ -274,9 +338,13 @@ impl super::Solver for Solver {
         parse_input(&data)
     }
 
-    fn solve((registers, instructions): Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = get_output(registers, &instructions);
-
-        (Some(part1), None)
+    fn solve((registers, program): Self::Problem) -> (Option<String>, Option<String>) {
+        let part1 = get_output(registers, &program)
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let part2 = find_initial_reg_value(&program);
+        (Some(part1), Some(part2.to_string()))
     }
 }
