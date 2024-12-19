@@ -35,7 +35,7 @@ impl Grid {
     }
 }
 
-fn find_min_steps(num_bytes: usize, max_pos: Position, bytes: &[Position]) -> u64 {
+fn find_min_steps(num_bytes: usize, max_pos: Position, bytes: &[Position]) -> Option<u64> {
     let grid = Grid::new(bytes.iter().take(num_bytes).cloned(), max_pos);
 
     let mut visited = HashSet::new();
@@ -44,19 +44,47 @@ fn find_min_steps(num_bytes: usize, max_pos: Position, bytes: &[Position]) -> u6
 
     for steps in 0.. {
         if current.contains(&max_pos) {
-            return steps;
+            return Some(steps);
+        } else if current.is_empty() {
+            return None
         }
 
         let new_current = current
             .iter()
             .flat_map(|pos| pos.adjacent())
             .filter(|pos| grid.can_move_to(*pos))
+            .filter(|pos| !visited.contains(pos))
             .collect();
         visited.extend(current);
         current = new_current;
     }
 
-    u64::MAX
+    unreachable!()
+}
+
+fn find_first_blocker(max_pos: Position, bytes: &[Position]) -> Position {
+    let mut num_bytes = 1024;
+
+    while find_min_steps(num_bytes, max_pos, bytes).is_some() {
+        println!("First {} bytes still works", num_bytes);
+        num_bytes *= 2;
+    }
+
+    let mut lower = num_bytes / 2;
+    let mut upper = num_bytes;
+
+    while upper > lower + 1 {
+        let mid = (upper + lower) / 2;
+        println!("Checking {} - {} - {}", lower, mid, upper);
+
+        if find_min_steps(mid, max_pos, bytes).is_some() {
+            lower = mid;
+        } else {
+            upper = mid;
+        }
+    }
+
+    bytes[lower]
 }
 
 pub struct Solver {}
@@ -76,7 +104,9 @@ impl super::Solver for Solver {
     }
 
     fn solve(bytes: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = find_min_steps(1024, Position { x: 70, y: 70 }, &bytes);
-        (Some(part1.to_string()), None)
+        let max_pos = Position { x: 70, y: 70 };
+        let part1 = find_min_steps(1024, max_pos, &bytes).unwrap();
+        let part2 = find_first_blocker(max_pos, &bytes);
+        (Some(part1.to_string()), Some(format!("{},{}", part2.x, part2.y)))
     }
 }
