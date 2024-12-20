@@ -5,7 +5,7 @@ use itertools::iproduct;
 use num::rational::Ratio;
 use std::{
     cmp::{max, min},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::Display,
     hash::Hash,
     ops::{Add, Div, Mul, Sub},
@@ -65,10 +65,7 @@ impl Position {
         }
     }
 
-    pub fn within_range(
-        self,
-        distance: i64,
-    ) -> impl Iterator<Item = Position> {
+    pub fn within_range(self, distance: i64) -> impl Iterator<Item = Position> {
         let min_y = self.y - distance;
         let max_y = self.y + distance;
 

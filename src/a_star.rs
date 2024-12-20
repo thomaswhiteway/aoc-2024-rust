@@ -1,6 +1,10 @@
 #![allow(unused)]
 use priority_queue::PriorityQueue;
-use std::{collections::{HashSet, HashMap}, fmt::Debug, hash::Hash};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    hash::Hash,
+};
 
 pub trait State: Sized + Eq + PartialEq + Hash {
     fn heuristic(&self) -> u64;
@@ -33,7 +37,7 @@ impl<S: Clone> Solution<S> {
     fn new(state: S) -> Self {
         Solution {
             cost: 0,
-            route: vec![state]
+            route: vec![state],
         }
     }
 
@@ -51,7 +55,6 @@ impl<S: State> Solution<S> {
     fn priority(&self) -> Priority {
         Priority(self.cost + self.route.last().unwrap().heuristic())
     }
-
 }
 
 impl<S: State> PartialEq for Solution<S> {
@@ -60,9 +63,7 @@ impl<S: State> PartialEq for Solution<S> {
     }
 }
 
-impl<S: State> Eq for Solution<S> {
-}
-
+impl<S: State> Eq for Solution<S> {}
 
 impl<S: State> PartialOrd for Solution<S> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -76,10 +77,9 @@ impl<S: State> Ord for Solution<S> {
     }
 }
 
-pub fn solve<S: State + Clone + Debug, I: IntoIterator<Item=S>>(
+pub fn solve<S: State + Clone + Debug, I: IntoIterator<Item = S>>(
     starts: I,
-) -> Result<Solution<S>, HashSet<S>>
-{
+) -> Result<Solution<S>, HashSet<S>> {
     let mut queue = PriorityQueue::new();
     for start in starts {
         let solution = Solution::new(start.clone());
@@ -101,7 +101,7 @@ pub fn solve<S: State + Clone + Debug, I: IntoIterator<Item=S>>(
             }
 
             queue.push_increase(next_state.clone(), solution.successor(next_state, delta));
-         }
+        }
     }
 
     Err(visited)

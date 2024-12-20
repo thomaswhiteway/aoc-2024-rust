@@ -21,6 +21,7 @@ mod day12;
 mod day13;
 mod day14;
 mod day15;
+mod day16;
 mod day17;
 mod day18;
 mod day19;
@@ -114,6 +115,7 @@ pub fn solve_day(day: u32, data: String, aoc: &mut Aoc, submit: Option<Part>) ->
         13 => solve::<day13::Solver>(data, aoc, submit),
         14 => solve::<day14::Solver>(data, aoc, submit),
         15 => solve::<day15::Solver>(data, aoc, submit),
+        16 => solve::<day16::Solver>(data, aoc, submit),
         17 => solve::<day17::Solver>(data, aoc, submit),
         18 => solve::<day18::Solver>(data, aoc, submit),
         19 => solve::<day19::Solver>(data, aoc, submit),
