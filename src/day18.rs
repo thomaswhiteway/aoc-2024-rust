@@ -1,4 +1,4 @@
-use std::{collections::HashSet, u64};
+use std::collections::HashSet;
 
 use failure::{err_msg, Error};
 use nom::{
