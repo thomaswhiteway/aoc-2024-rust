@@ -4,6 +4,7 @@ use failure::{err_msg, Error};
 use itertools::iproduct;
 use num::rational::Ratio;
 use std::{
+    cmp::{max, min},
     collections::HashMap,
     fmt::Display,
     hash::Hash,
@@ -62,6 +63,23 @@ impl Position {
             (dx, 0) if dx < 0 => Some(Direction::West),
             _ => None,
         }
+    }
+
+    pub fn within_range(
+        self,
+        distance: i64,
+    ) -> impl Iterator<Item = Position> {
+        let min_y = self.y - distance;
+        let max_y = self.y + distance;
+
+        (min_y..=max_y).flat_map(move |y| {
+            let rem = distance - (self.y - y).abs();
+
+            let min_x = self.x - rem;
+            let max_x = self.x + rem;
+
+            (min_x..=max_x).map(move |x| Position { x, y })
+        })
     }
 
     pub fn length(&self) -> i64 {

@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use failure::{err_msg, Error};
-use itertools::iproduct;
 
 use crate::common::{find_all_symbols_in_grid, find_symbol_in_grid, Position};
 
@@ -40,15 +39,20 @@ fn find_cheats_better_than(
 ) -> usize {
     let from_start = find_distances_from(start, walls);
     let from_end = find_distances_from(end, walls);
+    let from_end_ref = &from_end;
 
     let best = *from_start.get(&end).unwrap();
 
-    iproduct!(from_start.iter(), from_end.iter())
-        .filter(|((cheat_start, _), (cheat_end, _))| {
-            cheat_start.manhattan_distance_to(cheat_end) <= cheat_ps
-        })
-        .map(|((cheat_start, t1), (cheat_end, t2))| {
-            t1 + t2 + cheat_start.manhattan_distance_to(cheat_end)
+    from_start
+        .iter()
+        .flat_map(|(cheat_start, t1)| {
+            cheat_start
+                .within_range(cheat_ps as i64)
+                .filter_map(move |cheat_end| {
+                    from_end_ref
+                        .get(&cheat_end)
+                        .map(|t2| t1 + t2 + cheat_start.manhattan_distance_to(&cheat_end))
+                })
         })
         .filter(|t| t + min_improvement <= best)
         .count()
