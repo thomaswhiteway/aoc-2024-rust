@@ -1,6 +1,6 @@
 #![allow(unused)]
 use priority_queue::PriorityQueue;
-use std::{collections::HashSet, fmt::Debug, hash::Hash};
+use std::{collections::{HashSet, HashMap}, fmt::Debug, hash::Hash};
 
 pub trait State: Sized + Eq + PartialEq + Hash {
     fn heuristic(&self) -> u64;
@@ -23,56 +23,74 @@ impl Ord for Priority {
     }
 }
 
-struct Entry<S: State> {
-    cost: u64,
-    state: S,
-    route: Vec<S>,
-}
-
-impl<S: State> Entry<S> {
-    fn priority(&self) -> Priority {
-        Priority(self.cost + self.state.heuristic())
-    }
-}
-
-impl<S: State> PartialEq for Entry<S> {
-    fn eq(&self, other: &Self) -> bool {
-        self.state == other.state
-    }
-}
-
-impl<S: State> Eq for Entry<S> {}
-
-impl<S: State> Hash for Entry<S> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.state.hash(state)
-    }
-}
-
+#[derive(Clone)]
 pub struct Solution<S> {
     pub cost: u64,
     pub route: Vec<S>,
 }
 
-pub fn solve<S: State + Clone + Debug>(
-    starts: impl Iterator<Item = S>,
-) -> Result<Solution<S>, HashSet<S>> {
+impl<S: Clone> Solution<S> {
+    fn new(state: S) -> Self {
+        Solution {
+            cost: 0,
+            route: vec![state]
+        }
+    }
+
+    fn successor(&self, state: S, delta: u64) -> Self {
+        let mut route = self.route.clone();
+        route.push(state.clone());
+        Solution {
+            cost: self.cost + delta,
+            route,
+        }
+    }
+}
+
+impl<S: State> Solution<S> {
+    fn priority(&self) -> Priority {
+        Priority(self.cost + self.route.last().unwrap().heuristic())
+    }
+
+}
+
+impl<S: State> PartialEq for Solution<S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl<S: State> Eq for Solution<S> {
+}
+
+
+impl<S: State> PartialOrd for Solution<S> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<S: State> Ord for Solution<S> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.priority().cmp(&other.priority())
+    }
+}
+
+pub fn solve<S: State + Clone + Debug, I: IntoIterator<Item=S>>(
+    starts: I,
+) -> Result<Solution<S>, HashSet<S>>
+{
     let mut queue = PriorityQueue::new();
     for start in starts {
-        let entry = Entry {
-            cost: 0,
-            state: start.clone(),
-            route: vec![start],
-        };
-        let priority = entry.priority();
-        queue.push(entry, priority);
+        let solution = Solution::new(start.clone());
+        queue.push(start, solution);
     }
 
     let mut visited = HashSet::new();
 
-    while let Some((Entry { cost, state, route }, _)) = queue.pop() {
+    while let Some((state, solution)) = queue.pop() {
         if state.is_end() {
-            return Ok(Solution { cost, route });
+            return Ok(solution);
         }
 
         visited.insert(state.clone());
@@ -82,17 +100,8 @@ pub fn solve<S: State + Clone + Debug>(
                 continue;
             }
 
-            let mut route = route.clone();
-            route.push(next_state.clone());
-            let next_entry = Entry {
-                cost: cost + delta,
-                state: next_state,
-                route,
-            };
-            let priority = next_entry.priority();
-
-            queue.push_increase(next_entry, priority);
-        }
+            queue.push_increase(next_state.clone(), solution.successor(next_state, delta));
+         }
     }
 
     Err(visited)
