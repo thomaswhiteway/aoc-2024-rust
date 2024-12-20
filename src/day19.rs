@@ -50,13 +50,18 @@ fn is_possible(pattern: &str, towels: &[String]) -> bool {
 }
 
 fn find_num_possible(towels: &[String], patterns: &[String]) -> usize {
-    patterns.iter().filter(|pattern| is_possible(pattern, towels)).count()
+    patterns
+        .iter()
+        .filter(|pattern| is_possible(pattern, towels))
+        .count()
 }
 
 fn find_num_arrangements(towels: &[String], patterns: &[String]) -> usize {
-    patterns.iter().map(|pattern| num_arrangements(pattern, towels)).sum()
+    patterns
+        .iter()
+        .map(|pattern| num_arrangements(pattern, towels))
+        .sum()
 }
-
 
 pub struct Solver {}
 
@@ -66,8 +71,16 @@ impl super::Solver for Solver {
     fn parse_input(data: String) -> Result<Self::Problem, Error> {
         let lines: Vec<_> = data.lines().collect();
 
-        let towels = lines[0].split(", ").map(str::to_string).collect::<Vec<_>>().into_boxed_slice();
-        let patterns =lines[2..].iter().map(|s| s.to_string()).collect::<Vec<_>>().into_boxed_slice();
+        let towels = lines[0]
+            .split(", ")
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let patterns = lines[2..]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
 
         Ok((towels, patterns))
     }

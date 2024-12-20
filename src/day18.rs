@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    u64,
-};
+use std::{collections::HashSet, u64};
 
 use failure::{err_msg, Error};
 use nom::{
@@ -46,7 +43,7 @@ fn find_min_steps(num_bytes: usize, max_pos: Position, bytes: &[Position]) -> Op
         if current.contains(&max_pos) {
             return Some(steps);
         } else if current.is_empty() {
-            return None
+            return None;
         }
 
         let new_current = current
@@ -107,6 +104,9 @@ impl super::Solver for Solver {
         let max_pos = Position { x: 70, y: 70 };
         let part1 = find_min_steps(1024, max_pos, &bytes).unwrap();
         let part2 = find_first_blocker(max_pos, &bytes);
-        (Some(part1.to_string()), Some(format!("{},{}", part2.x, part2.y)))
+        (
+            Some(part1.to_string()),
+            Some(format!("{},{}", part2.x, part2.y)),
+        )
     }
 }
