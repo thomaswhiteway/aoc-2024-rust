@@ -35,24 +35,22 @@ fn find_cheats_better_than(
     start: Position,
     end: Position,
     walls: &HashSet<Position>,
+    cheat_ps: u64,
     min_improvement: u64,
 ) -> usize {
     let from_start = find_distances_from(start, walls);
     let from_end = find_distances_from(end, walls);
 
     let best = *from_start.get(&end).unwrap();
-    walls
-        .iter()
-        .filter(|&wall| {
-            iproduct!(
-                wall.adjacent().filter_map(|pos| from_start.get(&pos)),
-                wall.adjacent().filter_map(|pos| from_end.get(&pos))
-            )
-            .map(|(t1, t2)| t1 + t2 + 2)
-            .min()
-            .map(|t| t + min_improvement <= best)
-            .unwrap_or_default()
+
+    iproduct!(from_start.iter(), from_end.iter())
+        .filter(|((cheat_start, _), (cheat_end, _))| {
+            cheat_start.manhattan_distance_to(cheat_end) <= cheat_ps
         })
+        .map(|((cheat_start, t1), (cheat_end, t2))| {
+            t1 + t2 + cheat_start.manhattan_distance_to(cheat_end)
+        })
+        .filter(|t| t + min_improvement <= best)
         .count()
 }
 
@@ -71,7 +69,8 @@ impl super::Solver for Solver {
     }
 
     fn solve((start, end, walls): Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = find_cheats_better_than(start, end, &walls, 100);
-        (Some(part1.to_string()), None)
+        let part1 = find_cheats_better_than(start, end, &walls, 2, 100);
+        let part2 = find_cheats_better_than(start, end, &walls, 20, 100);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
