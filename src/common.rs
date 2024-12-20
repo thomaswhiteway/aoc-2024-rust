@@ -32,7 +32,7 @@ impl Position {
         self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
     }
 
-    pub fn adjacent(self) -> impl Iterator<Item = Position> {
+    pub fn adjacent(self) -> impl Iterator<Item = Position> + Clone {
         [(1, 0), (0, 1), (-1, 0), (0, -1)]
             .into_iter()
             .map(move |(dx, dy)| Position {
@@ -275,4 +275,28 @@ pub fn count_occurances<T: Hash + Eq + Clone, I: IntoIterator<Item = T>>(
     }
 
     counts
+}
+
+pub fn find_symbol_in_grid(data: &str, symbol: char) -> Option<Position> {
+    data.lines().enumerate().find_map(|(y, line)| {
+        line.char_indices().find_map(|(x, c)| {
+            if c == symbol {
+                Some((x, y).into())
+            } else {
+                None
+            }
+        })
+    })
+}
+
+pub fn find_all_symbols_in_grid(data: &str, symbol: char) -> impl Iterator<Item = Position> + '_ {
+    data.lines().enumerate().flat_map(move |(y, line)| {
+        line.char_indices().filter_map(move |(x, c)| {
+            if c == symbol {
+                Some((x, y).into())
+            } else {
+                None
+            }
+        })
+    })
 }
