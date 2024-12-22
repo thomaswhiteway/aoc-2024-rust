@@ -1,18 +1,23 @@
 use failure::{err_msg, Error};
-use std::str::FromStr;
+use itertools::{iproduct, Itertools};
+use std::{
+    collections::{hash_map, HashMap},
+    str::FromStr,
+};
 
-fn mix(a: u64, b: u64) -> u64 {
+fn mix(a: i64, b: i64) -> i64 {
     a ^ b
 }
 
-fn prune(a: u64) -> u64 {
+fn prune(a: i64) -> i64 {
     a % 16777216
 }
 
-struct SecretNumberSequence(u64);
+#[derive(Clone, Debug, Copy)]
+struct SecretNumberSequence(i64);
 
 impl Iterator for SecretNumberSequence {
-    type Item = u64;
+    type Item = i64;
 
     fn next(&mut self) -> Option<Self::Item> {
         let val = self.0;
@@ -25,21 +30,60 @@ impl Iterator for SecretNumberSequence {
     }
 }
 
-fn find_secret_number_sum(numbers: &[u64], index: usize) -> u64 {
+fn price_seq(num: i64) -> impl Iterator<Item = i64> {
+    SecretNumberSequence(num).map(|n| n % 10)
+}
+
+fn find_secret_number_sum(numbers: &[i64], index: usize) -> i64 {
     numbers
         .iter()
         .map(|&num| SecretNumberSequence(num).nth(index).unwrap())
         .sum()
 }
 
+fn find_delta_seq_prices(num: i64, count: usize) -> HashMap<(i64, i64, i64, i64), i64> {
+    let mut delta_seq_prices = HashMap::new();
+
+    let delta_seqs = price_seq(num)
+        .take(count)
+        .tuple_windows()
+        .map(|(p1, p2)| p2 - p1)
+        .tuple_windows();
+    for (delta_seq, price) in delta_seqs.zip(price_seq(num).skip(4)) {
+        if let hash_map::Entry::Vacant(vacant) = delta_seq_prices.entry(delta_seq) {
+            vacant.insert(price);
+        }
+    }
+
+    delta_seq_prices
+}
+
+fn max_num_bananas(numbers: &[i64], max_numbers: usize) -> i64 {
+    let delta_seq_prices: Vec<_> = numbers
+        .iter()
+        .map(|&num| find_delta_seq_prices(num, max_numbers + 1))
+        .collect();
+
+    iproduct!(-9..=9, -9..=9, -9..=9, -9..=9)
+        .filter(|&(a, b,c, d)| (-9..=9).contains(&(a + b + c + d)))
+        .map(|delta_seq| {
+            delta_seq_prices
+                .iter()
+                .filter_map(|prices| prices.get(&delta_seq))
+                .sum::<i64>()
+        })
+        .max()
+        .unwrap()
+}
+
 pub struct Solver {}
 
 impl super::Solver for Solver {
-    type Problem = Box<[u64]>;
+    type Problem = Box<[i64]>;
 
     fn parse_input(data: String) -> Result<Self::Problem, Error> {
         data.lines()
-            .map(u64::from_str)
+            .map(i64::from_str)
             .collect::<Result<Vec<_>, _>>()
             .map(Vec::into_boxed_slice)
             .map_err(|err| err_msg(format!("Failed to parse input: {}", err)))
@@ -47,6 +91,7 @@ impl super::Solver for Solver {
 
     fn solve(numbers: Self::Problem) -> (Option<String>, Option<String>) {
         let part1 = find_secret_number_sum(&numbers, 2000);
-        (Some(part1.to_string()), None)
+        let part2 = max_num_bananas(&numbers, 2000);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }
