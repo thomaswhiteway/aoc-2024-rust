@@ -1,10 +1,70 @@
 use crate::common::{Direction, Position};
 use failure::Error;
-use itertools::iproduct;
+use itertools::{Either, Itertools};
 use lazy_static::lazy_static;
-use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::str::FromStr;
+
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+enum Moves {
+    North,
+    NorthEast,
+    EastNorth,
+    East,
+    EastSouth,
+    SouthEast,
+    South,
+    SouthWest,
+    WestSouth,
+    West,
+    WestNorth,
+    NorthWest,
+}
+
+impl Moves {
+    fn all() -> impl Iterator<Item = Moves> {
+        use Moves::*;
+
+        [
+            North, NorthEast, EastNorth, East, EastSouth, SouthEast, South, SouthWest, WestSouth,
+            West, WestNorth, NorthWest,
+        ]
+        .into_iter()
+    }
+
+    fn components(self) -> impl Iterator<Item = Direction> {
+        use Direction::*;
+        match self {
+            Moves::North => Either::Left([North].into_iter()),
+            Moves::NorthEast => Either::Right([North, East].into_iter()),
+            Moves::EastNorth => Either::Right([East, North].into_iter()),
+            Moves::East => Either::Left([East].into_iter()),
+            Moves::EastSouth => Either::Right([East, South].into_iter()),
+            Moves::SouthEast => Either::Right([South, East].into_iter()),
+            Moves::South => Either::Left([South].into_iter()),
+            Moves::SouthWest => Either::Right([South, West].into_iter()),
+            Moves::WestSouth => Either::Right([West, South].into_iter()),
+            Moves::West => Either::Left([West].into_iter()),
+            Moves::WestNorth => Either::Right([West, North].into_iter()),
+            Moves::NorthWest => Either::Right([North, West].into_iter()),
+        }
+    }
+
+    fn for_direction(dir: Direction) -> impl Iterator<Item = Self> {
+        use Moves::*;
+        match dir {
+            Direction::North => Either::Left([North].into_iter()),
+            Direction::NorthEast => Either::Right([NorthEast, EastNorth].into_iter()),
+            Direction::East => Either::Left([East].into_iter()),
+            Direction::SouthEast => Either::Right([SouthEast, EastSouth].into_iter()),
+            Direction::South => Either::Left([South].into_iter()),
+            Direction::SouthWest => Either::Right([SouthWest, WestSouth].into_iter()),
+            Direction::West => Either::Left([West].into_iter()),
+            Direction::NorthWest => Either::Right([NorthWest, WestNorth].into_iter()),
+        }
+    }
+}
 
 lazy_static! {
     static ref NUMERIC_POSITIONS: HashMap<char, Position> = {
@@ -41,6 +101,7 @@ lazy_static! {
     };
 }
 
+#[allow(unused)]
 fn get_output(presses: &str, buttons: &HashMap<Position, char>, start: Position) -> String {
     let mut output = String::new();
 
@@ -58,6 +119,7 @@ fn get_output(presses: &str, buttons: &HashMap<Position, char>, start: Position)
     output
 }
 
+#[allow(unused)]
 fn get_code(presses: &str) -> String {
     let dir_start = *DIRECTIONAL_POSITIONS.get(&'A').unwrap();
     let num_start = *NUMERIC_POSITIONS.get(&'A').unwrap();
@@ -66,104 +128,104 @@ fn get_code(presses: &str) -> String {
     get_output(&output, &NUMERIC_BUTTONS, num_start)
 }
 
-fn find_possible_presses(
-    presses: &str,
+fn shortest_route(
+    from: Position,
+    to: Position,
+    cost: &HashMap<Moves, usize>,
+    buttons: &HashMap<Position, char>,
+) -> usize {
+    Moves::for_direction(from.direction_to(to))
+        .filter(|moves| {
+            if let &[first, _] = moves.components().collect::<Vec<_>>().as_slice() {
+                let corner = match first {
+                    Direction::North | Direction::South => Position { x: from.x, y: to.y },
+                    Direction::East | Direction::West => Position { x: to.x, y: from.y },
+                    _ => unreachable!(),
+                };
+
+                buttons.contains_key(&corner)
+            } else {
+                true
+            }
+        })
+        .map(|moves| cost.get(&moves).unwrap() + from.manhattan_distance_to(&to) as usize)
+        .min()
+        .unwrap()
+}
+
+fn min_cost_for_route(
+    route: impl Iterator<Item = Position>,
+    cost: &HashMap<Moves, usize>,
+    buttons: &HashMap<Position, char>,
+) -> usize {
+    route
+        .tuple_windows()
+        .map(|(from, to)| shortest_route(from, to, cost, buttons))
+        .sum()
+}
+
+fn get_route<'a>(
+    presses: impl Iterator<Item = char> + 'a,
+    positions: &'a HashMap<char, Position>,
+) -> impl Iterator<Item = Position> + 'a {
+    [positions[&'A']]
+        .into_iter()
+        .chain(presses.map(|c| positions[&c]))
+}
+
+fn min_cost_for_moves(
+    moves: Moves,
+    cost: &HashMap<Moves, usize>,
     positions: &HashMap<char, Position>,
     buttons: &HashMap<Position, char>,
-    start: Position,
-) -> impl Iterator<Item = String> {
-    let mut candidates = vec!["".to_string()];
+) -> usize {
+    let route = get_route(
+        moves.components().map(|d| d.as_char()).chain(['A']),
+        positions,
+    );
+    min_cost_for_route(route, cost, buttons)
+}
 
-    let mut pos = start;
+fn min_cost_for_code(
+    code: &str,
+    cost: &HashMap<Moves, usize>,
+    positions: &HashMap<char, Position>,
+    buttons: &HashMap<Position, char>,
+) -> usize {
+    let route = get_route(code.chars(), positions);
+    min_cost_for_route(route, cost, buttons) + code.len()
+}
 
-    for c in presses.chars() {
-        let next = *positions.get(&c).unwrap();
-        let delta = next - pos;
+fn update_costs(
+    costs: &HashMap<Moves, usize>,
+    positions: &HashMap<char, Position>,
+    buttons: &HashMap<Position, char>,
+) -> HashMap<Moves, usize> {
+    Moves::all()
+        .map(|moves| (moves, min_cost_for_moves(moves, costs, positions, buttons)))
+        .collect()
+}
 
-        let mut components: Vec<String> = vec![];
+fn shortest_path_len(code: &str, intermediate_keypads: usize) -> usize {
+    let mut costs: HashMap<Moves, usize> = Moves::all().map(|m| (m, 0)).collect();
 
-        match delta.x.cmp(&0) {
-            Ordering::Less => components.push("<".repeat(delta.x.unsigned_abs() as usize)),
-            Ordering::Greater => components.push(">".repeat(delta.x.unsigned_abs() as usize)),
-            _ => {}
-        }
-
-        match delta.y.cmp(&0) {
-            Ordering::Less => components.push("^".repeat(delta.y.unsigned_abs() as usize)),
-            Ordering::Greater => components.push("v".repeat(delta.y.unsigned_abs() as usize)),
-            Ordering::Equal => {}
-        }
-
-        let new_presses = match components.len() {
-            0 => vec!["A".to_string()],
-            1 => vec![format!("{}A", components[0])],
-            2 => {
-                let mut presses = vec![];
-
-                if buttons.contains_key(&(pos + Position { x: delta.x, y: 0 })) {
-                    presses.push(format!("{}{}A", components[0], components[1]));
-                }
-
-                if buttons.contains_key(&(pos + Position { x: 0, y: delta.y })) {
-                    presses.push(format!("{}{}A", components[1], components[0]));
-                }
-
-                presses
-            }
-            _ => unreachable!(),
-        };
-
-        candidates = iproduct!(candidates, new_presses)
-            .map(|(first, second)| format!("{}{}", first, second))
-            .collect();
-
-        pos = next;
+    for _ in 0..intermediate_keypads {
+        costs = update_costs(&costs, &DIRECTIONAL_POSITIONS, &DIRECTIONAL_BUTTONS);
     }
 
-    let buttons: HashMap<_, _> = positions.iter().map(|(&c, &p)| (p, c)).collect();
-    for candidate in candidates.iter() {
-        assert_eq!(get_output(candidate, &buttons, start), presses);
-    }
-
-    candidates.into_iter()
+    min_cost_for_code(code, &costs, &NUMERIC_POSITIONS, &NUMERIC_BUTTONS)
 }
 
-fn shortest_path(code: &str) -> String {
-    find_possible_presses(
-        code,
-        &NUMERIC_POSITIONS,
-        &NUMERIC_BUTTONS,
-        *NUMERIC_POSITIONS.get(&'A').unwrap(),
-    )
-    .flat_map(|sequence| {
-        find_possible_presses(
-            &sequence,
-            &DIRECTIONAL_POSITIONS,
-            &DIRECTIONAL_BUTTONS,
-            *DIRECTIONAL_POSITIONS.get(&'A').unwrap(),
-        )
-    })
-    .flat_map(|sequence| {
-        find_possible_presses(
-            &sequence,
-            &DIRECTIONAL_POSITIONS,
-            &DIRECTIONAL_BUTTONS,
-            *DIRECTIONAL_POSITIONS.get(&'A').unwrap(),
-        )
-    })
-    .min_by_key(|sequence| sequence.len())
-    .unwrap()
+fn get_complexity(code: &str, intermediate_keypads: usize) -> usize {
+    let sequence_len = shortest_path_len(code, intermediate_keypads);
+    sequence_len * usize::from_str(&code[..code.len() - 1]).unwrap()
 }
 
-fn get_complexity(code: &str) -> usize {
-    let sequence = shortest_path(code);
-    assert_eq!(get_code(&sequence), code);
-    println!("{} {}", code, sequence.len());
-    sequence.len() * usize::from_str(&code[..code.len() - 1]).unwrap()
-}
-
-fn get_complexity_sum(codes: &[String]) -> usize {
-    codes.iter().map(|code| get_complexity(code)).sum()
+fn get_complexity_sum(codes: &[String], intermediate_keypads: usize) -> usize {
+    codes
+        .iter()
+        .map(|code| get_complexity(code, intermediate_keypads))
+        .sum()
 }
 
 pub struct Solver {}
@@ -180,7 +242,8 @@ impl super::Solver for Solver {
     }
 
     fn solve(codes: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = get_complexity_sum(&codes);
-        (Some(part1.to_string()), None)
+        let part1 = get_complexity_sum(&codes, 2);
+        let part2 = get_complexity_sum(&codes, 25);
+        (Some(part1.to_string()), Some(part2.to_string()))
     }
 }

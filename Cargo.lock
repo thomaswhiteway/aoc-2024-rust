@@ -44,6 +44,7 @@ dependencies = [
  "array-init",
  "failure",
  "itertools",
+ "lazy_static",
  "nom",
  "num",
  "priority-queue",

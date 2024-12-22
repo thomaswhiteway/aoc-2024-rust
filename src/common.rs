@@ -207,7 +207,7 @@ impl Direction {
             NorthEast => 'p',
             East => '>',
             SouthEast => 'b',
-            South => 'V',
+            South => 'v',
             SouthWest => 'L',
             West => '<',
             NorthWest => '\\',
