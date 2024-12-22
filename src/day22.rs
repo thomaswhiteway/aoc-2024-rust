@@ -1,9 +1,23 @@
 use failure::{err_msg, Error};
-use itertools::{iproduct, Itertools};
+use itertools::Itertools;
 use std::{
-    collections::{hash_map, HashMap},
+    collections::{HashMap, HashSet},
     str::FromStr,
 };
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+struct DeltaSeq(u32);
+
+impl From<(i8, i8, i8, i8)> for DeltaSeq {
+    fn from((a, b, c, d): (i8, i8, i8, i8)) -> Self {
+        DeltaSeq(
+            ((a as u8) as u32) << 24
+                | ((b as u8) as u32) << 16
+                | ((c as u8) as u32) << 8
+                | (d as u8) as u32,
+        )
+    }
+}
 
 fn mix(a: i64, b: i64) -> i64 {
     a ^ b
@@ -21,17 +35,16 @@ impl Iterator for SecretNumberSequence {
 
     fn next(&mut self) -> Option<Self::Item> {
         let val = self.0;
-
-        self.0 = prune(mix(self.0, self.0 * 64));
-        self.0 = prune(mix(self.0, self.0 / 32));
-        self.0 = prune(mix(self.0, self.0 * 2048));
+        self.0 = prune(mix(self.0, self.0 << 6));
+        self.0 = prune(mix(self.0, self.0 >> 5));
+        self.0 = prune(mix(self.0, self.0 << 11));
 
         Some(val)
     }
 }
 
-fn price_seq(num: i64) -> impl Iterator<Item = i64> {
-    SecretNumberSequence(num).map(|n| n % 10)
+fn price_seq(num: i64) -> impl Iterator<Item = i8> {
+    SecretNumberSequence(num).map(|n| (n % 10) as i8)
 }
 
 fn find_secret_number_sum(numbers: &[i64], index: usize) -> i64 {
@@ -41,39 +54,32 @@ fn find_secret_number_sum(numbers: &[i64], index: usize) -> i64 {
         .sum()
 }
 
-fn find_delta_seq_prices(num: i64, count: usize) -> HashMap<(i64, i64, i64, i64), i64> {
-    let mut delta_seq_prices = HashMap::new();
+fn update_delta_seq_prices(num: i64, count: usize, prices: &mut HashMap<DeltaSeq, i64>) {
+    let mut seen = HashSet::new();
 
     let delta_seqs = price_seq(num)
         .take(count)
         .tuple_windows()
         .map(|(p1, p2)| p2 - p1)
-        .tuple_windows();
+        .tuple_windows()
+        .map(|seq: (i8, i8, i8, i8)| seq.into());
+
     for (delta_seq, price) in delta_seqs.zip(price_seq(num).skip(4)) {
-        if let hash_map::Entry::Vacant(vacant) = delta_seq_prices.entry(delta_seq) {
-            vacant.insert(price);
+        if !seen.contains(&delta_seq) {
+            seen.insert(delta_seq);
+            *prices.entry(delta_seq).or_default() += price as i64;
         }
     }
-
-    delta_seq_prices
 }
 
 fn max_num_bananas(numbers: &[i64], max_numbers: usize) -> i64 {
-    let delta_seq_prices: Vec<_> = numbers
-        .iter()
-        .map(|&num| find_delta_seq_prices(num, max_numbers + 1))
-        .collect();
+    let mut delta_seq_prices = HashMap::new();
 
-    iproduct!(-9..=9, -9..=9, -9..=9, -9..=9)
-        .filter(|&(a, b,c, d)| (-9..=9).contains(&(a + b + c + d)))
-        .map(|delta_seq| {
-            delta_seq_prices
-                .iter()
-                .filter_map(|prices| prices.get(&delta_seq))
-                .sum::<i64>()
-        })
-        .max()
-        .unwrap()
+    for &num in numbers {
+        update_delta_seq_prices(num, max_numbers + 1, &mut delta_seq_prices);
+    }
+
+    *delta_seq_prices.values().max().unwrap()
 }
 
 pub struct Solver {}
