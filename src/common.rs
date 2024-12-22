@@ -55,13 +55,17 @@ impl Position {
         })
     }
 
-    pub fn direction_to(&self, other: &Self) -> Option<Direction> {
+    pub fn direction_to(self, other: Self) -> Direction {
         match (other.x - self.x, other.y - self.y) {
-            (0, dy) if dy < 0 => Some(Direction::North),
-            (dx, 0) if dx > 0 => Some(Direction::East),
-            (0, dy) if dy > 0 => Some(Direction::South),
-            (dx, 0) if dx < 0 => Some(Direction::West),
-            _ => None,
+            (0, dy) if dy < 0 => Direction::North,
+            (dx, dy) if dx > 0 && dy < 0 => Direction::NorthEast,
+            (dx, 0) if dx > 0 => Direction::East,
+            (dx, dy) if dx > 0 && dy > 0 => Direction::SouthEast,
+            (0, dy) if dy > 0 => Direction::South,
+            (dx, dy) if dx < 0 && dy > 0 => Direction::SouthWest,
+            (dx, 0) if dx < 0 => Direction::West,
+            (dx, dy) if dx < 0 && dy < 0 => Direction::NorthWest,
+            _ => unreachable!(),
         }
     }
 
@@ -263,6 +267,20 @@ impl Direction {
             SouthWest => NorthWest,
             West => North,
             NorthWest => NorthEast,
+        }
+    }
+
+    pub fn components(self) -> impl Iterator<Item = Direction> {
+        use Direction::*;
+        match self {
+            North => vec![North].into_iter(),
+            NorthEast => vec![North, East].into_iter(),
+            East => vec![East].into_iter(),
+            SouthEast => vec![South, East].into_iter(),
+            South => vec![South].into_iter(),
+            SouthWest => vec![South, West].into_iter(),
+            West => vec![West].into_iter(),
+            NorthWest => vec![North, West].into_iter(),
         }
     }
 }
