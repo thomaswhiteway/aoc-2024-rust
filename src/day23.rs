@@ -27,12 +27,14 @@ impl<'a> ConnectionMap<'a> {
     }
 }
 
-fn build_connection_map(connections: &[(String, String)]) -> ConnectionMap<'_> {
-    let mut connection_map = ConnectionMap::default();
-    for (a, b) in connections.iter() {
-        connection_map.add_connection(a, b);
+impl<'a> FromIterator<&'a (String, String)> for ConnectionMap<'a> {
+    fn from_iter<T: IntoIterator<Item = &'a (String, String)>>(connections: T) -> Self {
+        let mut connection_map = ConnectionMap::default();
+        for (a, b) in connections {
+            connection_map.add_connection(a, b);
+        }
+        connection_map
     }
-    connection_map
 }
 
 fn connected_pairs<'a>(
@@ -69,7 +71,7 @@ fn find_triples(connection_map: &ConnectionMap<'_>) -> usize {
         .count()
 }
 
-fn find_largest_connected_set<'a>(connection_map: &ConnectionMap<'a>) -> HashSet<&'a str> {
+fn find_connected_sets<'a>(connection_map: &ConnectionMap<'a>) -> Vec<HashSet<&'a str>> {
     let mut connected_sets: Vec<HashSet<&'a str>> = vec![];
 
     let mut computers: Vec<_> = connection_map.computers().collect();
@@ -96,6 +98,10 @@ fn find_largest_connected_set<'a>(connection_map: &ConnectionMap<'a>) -> HashSet
     }
 
     connected_sets
+}
+
+fn find_largest_connected_set<'a>(connection_map: &ConnectionMap<'a>) -> HashSet<&'a str> {
+    find_connected_sets(connection_map)
         .into_iter()
         .max_by_key(|set| set.len())
         .unwrap()
@@ -127,7 +133,7 @@ impl super::Solver for Solver {
     }
 
     fn solve(connections: Self::Problem) -> (Option<String>, Option<String>) {
-        let connection_map = build_connection_map(&connections);
+        let connection_map = connections.iter().collect();
         let part1 = find_triples(&connection_map);
         let part2 = find_password(&connection_map);
         (Some(part1.to_string()), Some(part2))
