@@ -48,9 +48,7 @@ fn connected_pairs<'a>(
         .filter(|(a, b)| connection_map.has_connection(a, b))
 }
 
-fn find_triples(connections: &[(String, String)]) -> usize {
-    let connection_map = build_connection_map(connections);
-
+fn find_triples(connection_map: &ConnectionMap<'_>) -> usize {
     let mut t_computers: Vec<_> = connection_map
         .computers()
         .filter(|name| name.starts_with("t"))
@@ -66,9 +64,49 @@ fn find_triples(connections: &[(String, String)]) -> usize {
                 .iter()
                 .copied()
                 .filter(|&other| !other.starts_with("t") || other > computer);
-            connected_pairs(&connection_map, candidates)
+            connected_pairs(connection_map, candidates)
         })
         .count()
+}
+
+fn find_largest_connected_set<'a>(connection_map: &ConnectionMap<'a>) -> HashSet<&'a str> {
+    let mut connected_sets: Vec<HashSet<&'a str>> = vec![];
+
+    let mut computers: Vec<_> = connection_map.computers().collect();
+    computers.sort();
+
+    for computer in connection_map.computers() {
+        let connected = connection_map.connections_from(computer).unwrap();
+
+        let mut unused = connected.clone();
+
+        for existing_set in connected_sets.iter_mut() {
+            if existing_set.is_subset(connected) {
+                unused.retain(|&u| !existing_set.contains(u));
+                existing_set.insert(computer);
+            }
+        }
+
+        connected_sets.extend(
+            unused
+                .into_iter()
+                .filter(|&u| u < computer)
+                .map(|other| [computer, other].into_iter().collect()),
+        );
+    }
+
+    connected_sets
+        .into_iter()
+        .max_by_key(|set| set.len())
+        .unwrap()
+}
+
+fn find_password(connections: &ConnectionMap<'_>) -> String {
+    let mut computers: Vec<_> = find_largest_connected_set(connections)
+        .into_iter()
+        .collect();
+    computers.sort();
+    computers.join(",")
 }
 
 pub struct Solver {}
@@ -89,7 +127,9 @@ impl super::Solver for Solver {
     }
 
     fn solve(connections: Self::Problem) -> (Option<String>, Option<String>) {
-        let part1 = find_triples(&connections);
-        (Some(part1.to_string()), None)
+        let connection_map = build_connection_map(&connections);
+        let part1 = find_triples(&connection_map);
+        let part2 = find_password(&connection_map);
+        (Some(part1.to_string()), Some(part2))
     }
 }
